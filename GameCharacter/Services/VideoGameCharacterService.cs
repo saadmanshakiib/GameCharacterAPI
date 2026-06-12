@@ -1,39 +1,75 @@
+using GameCharacter.Data;
+using GameCharacter.DTOS;
 using GameCharacter.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 
 namespace GameCharacter.Services;
 
-public class VideoGameCharacterService : IVideoGameCharacterService
+public class VideoGameCharacterService(AppDbContext context) : IVideoGameCharacterService
 {
-    static List<Character> characters = new List<Character>()
+
+    public async Task<List<CharacterResponse>> getAllCharactersAsync() =>
+        await context.characters.Select(c => new CharacterResponse()
+        {
+            name = c.name,
+            game = c.game,
+            role = c.role
+        }).ToListAsync();
+    
+
+    public async Task<bool> addCharacterAsync(CreateGameReq character)
     {
-        new Models.Character { id = 1, name = "Ghost", game = "Call of Duty", role = "Lieutanent" },
-        new Models.Character { id = 2, name = "Price", game = "Call of Duty", role = "Captain" },
-        new Models.Character { id = 3, name = "Messi", game = "Efootball", role = "Football Player" }
-    };    
-    public async Task<List<Character>> getAllCharactersAsync()
-    {
-        return await Task.FromResult(characters);
+        var newCharacter = new Character()
+        {
+            name = character.name,
+            game = character.game,
+            role = character.role
+        };
+        context.characters.Add(newCharacter);
+        await context.SaveChangesAsync();
+        return true;
     }
 
-    public Task<Character> addCharacterAsync(Character character)
+    public async Task<CharacterResponse?> getCharacterByIdAsync(int id)
     {
-        throw new NotImplementedException();
+        var r = await context.characters.Where(c => c.id == id).Select(c => new CharacterResponse()
+        {
+            name = c.name,
+            game = c.game,
+            role = c.role
+        }).FirstOrDefaultAsync();
+        return r;
     }
 
-    public Task<Character> getCharacterByIdAsync(int id)
+    public async Task<bool> updateCharacterAsync(int id, UpdateGameReq character)
     {
-        var character = characters.Find(c => c.id == id);
-        return Task.FromResult(character);
+        var existingCharacter = await context.characters.FindAsync(id);
+
+        if (existingCharacter is null)
+        {
+            return false;
+        }
+
+        existingCharacter.name = character.name;
+        existingCharacter.game = character.game;
+        existingCharacter.role = character.role;
+
+        await context.SaveChangesAsync();
+        return true;
     }
 
-    public Task<bool> updateCharacterAsync(int id)
+    public async Task<bool> deleteCharacterAsync(int id)
     {
-        throw new NotImplementedException();
-    }
+        var character = await context.characters.FindAsync(id);
 
-    public Task<bool> deleteCharacterAsync(int id, Character character)
-    {
-        throw new NotImplementedException();
+        if (character is null)
+        {
+            return false;
+        }
+
+        context.characters.Remove(character);
+        await context.SaveChangesAsync();
+        return true;
     }
 }
